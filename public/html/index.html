@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Vue.js grid component example</title>
+    <link rel="stylesheet" href="/bower_components/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/sandstone.bootstrap.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/bower_components/vue/dist/vue.min.js"></script>
+    <script src="/bower_components/vue-router/dist/vue-router.min.js"></script>
+    <script src="/bower_components/vue-resource/dist/vue-resource.min.js"></script>
+    <script src="/bower_components/socket.io-client/dist/socket.io.slim.js"></script>
+
+    <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+    <script src="/bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+</head>
+<body>
+
+<div id="app" class="container">
+
+    <div class="simple-head">
+        <h1>Trading journal</h1>
+        <p class="lead">Think about it, man.</p>
+    </div>
+
+    <div class="main-block">
+
+        <form  method="POST" enctype="multipart/form-data">
+            <div class="form-inline">
+                <div class="form-group">
+                    <input v-model="api_key" class="form-control" placeholder="api key">
+                </div>
+                <div class="form-group">
+                    <input v-model="secret_key" class="form-control" placeholder="secret key">
+                </div>
+                <p>or</p>
+                <div class="form-group">
+                    <input type="file" v-model="picture" class="form-control" name="picture">
+                </div>
+
+                <button v-on:click="loadData" class="btn btn-default">Load</button>
+            </div>
+        </form>
+
+        <div>
+            <h3>In total</h3>
+            <p>Time range: {{common_stats.date_start}} - {{common_stats.date_end}}</p>
+            <p>Gain: {{common_stats.gain}} BTC</p>
+            <p>Fee: {{common_stats.fee}} BTC</p>
+            <p>Volume: {{common_stats.volume}} BTC</p>
+        </div>
+
+        <div>
+            <h3>Result</h3>
+            <grid
+                :data="results_data"
+                :columns="results_columns">
+            </grid>
+        </div>
+
+        <div>
+            <h3>Raw data</h3>
+            <grid
+                :data="grid_data"
+                :columns="grid_columns">
+            </grid>
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- component template -->
+<script type="text/x-template" id="grid-template">
+    <table v-if="filteredData.length" class="table">
+        <thead>
+        <tr>
+            <th v-for="key in columns"
+                @click="sortBy(key)"
+                :class="{ active: sortKey == key }">
+                {{ key | capitalize }}
+                <span class="arrow" :class="sortOrders[key] > 0 ? 'asc' : 'dsc'">
+              </span>
+            </th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr v-for="entry in filteredData">
+            <td v-for="key in columns">
+                {{entry[key]}}
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    <p v-else>No matches found.</p>
+</script>
+
+<!-- demo root element -->
+
+<script src="/js/main.js"></script>
+
+</body>
+</html>
