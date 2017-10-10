@@ -147,7 +147,7 @@ Vue.component('grid', {
             this.sortOrders[key] = this.sortOrders[key] * -1
         }
     }
-})
+});
 
 let socket = io.connect('//localhost:3001');
 
@@ -172,7 +172,6 @@ let updateTable = function(app, data) {
 
     const stat = new Statistic();
     let common_statistic = {};
-    console.log(res_sorted);
     for(let pair in res_sorted) {
         let row = stat.calculate(res_sorted[pair]);
         console.log(row);
@@ -192,7 +191,6 @@ const app = new Vue({
     data: {
         api_key: '',
         secret_key: '',
-        picture: '',
 
         grid_columns: ['time', 'type', 'pair', 'price', 'unit price', 'quantity', 'fee'],
         grid_data:[],
@@ -211,6 +209,14 @@ const app = new Vue({
     methods: {
         loadFile: function(e) {
             let t = document.getElementById('file_content').files[0];
+            if(t.type !== 'text/csv') {
+                console.log('Wrong file type');
+                return;
+            }
+            if(t.size > 111111) {
+                console.log('File is too big');
+                return;
+            }
             let form_data = new FormData();
             form_data.append('csv_file', t);
             this.$http.post('/upload', form_data, {
