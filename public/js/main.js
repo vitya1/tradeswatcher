@@ -152,13 +152,7 @@ Vue.component('grid', {
 let socket = io.connect('//localhost:3001');
 
 let updateTable = function(app, data) {
-    app.common_stats = {
-        fee: 0,
-        volume: 0,
-        gain: 0,
-        date_start: 0,
-        date_end: 0
-    };
+    app.resetStatistic();
     app.grid_data = data;
 
     data.reverse();
@@ -239,6 +233,17 @@ const app = new Vue({
                 api_key: this.api_key,
                 secret_key: this.secret_key
             });
+        },
+        resetStatistic: function() {
+            this.grid_data = [];
+            this.results_data = [];
+            this.common_stats = {
+                fee: 0,
+                volume: 0,
+                gain: 0,
+                date_start: 0,
+                date_end: 0
+            };
         }
     }
 });
