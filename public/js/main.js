@@ -151,6 +151,42 @@ Vue.component('grid', {
 
 let socket = io.connect('//localhost:3001');
 
+let updateTable = function(app, data) {
+    app.grid_data = data;
+
+    data.reverse();
+    let res_sorted = {};
+    data.forEach(val => {
+        if(!res_sorted.hasOwnProperty(val['pair'])) {
+            res_sorted[val['pair']] = [];
+        }
+        res_sorted[val['pair']].push(val);
+
+        if(app.common_stats.date_start == 0 || app.common_stats.date_start >= val.time) {
+            app.common_stats.date_start = val.time;
+        }
+        if(app.common_stats.date_end == 0 || app.common_stats.date_end <= val.time) {
+            app.common_stats.date_end = val.time;
+        }
+    });
+
+    const stat = new Statistic();
+    let common_statistic = {};
+    console.log(res_sorted);
+    for(let pair in res_sorted) {
+        let row = stat.calculate(res_sorted[pair]);
+        console.log(row);
+        if(row.actions == 0) {
+            continue;
+        }
+        app.common_stats.fee += row.fee;
+        app.common_stats.volume += row.volume;
+        app.common_stats.gain += row.gain;
+
+        app.results_data.push(stat.prepareForGrid(row));
+    }
+};
+
 const app = new Vue({
     el: '#app',
     data: {
@@ -173,56 +209,29 @@ const app = new Vue({
         }
     },
     methods: {
-        loadData: function(e) {
-            e.preventDefault();
-            let data = new FormData();
-            this.$http.put('/api', {picture: this.picture}, {
+        loadFile: function(e) {
+            let t = document.getElementById('file_content').files[0];
+            let form_data = new FormData();
+            form_data.append('csv_file', t);
+            this.$http.post('/upload', form_data, {
                 headers: {
                     'Content-Type': 'multipart/form-data; boundary=' + Date.now()
                 }
+            }).then(response => {
+                updateTable(this, response.data);
             });
-            //console.log(this.picture);
-/*            socket.emit('loadData', {
+        },
+        loadData: function(e) {
+            e.preventDefault();
+            socket.emit('loadData', {
                 api_key: this.api_key,
                 secret_key: this.secret_key
             });
-*/        }
+        }
     }
 });
 
-socket.on('loadData', (data) => {
-    app.grid_data = data;
-
-    data.reverse();
-    let res_sorted = {};
-    data.forEach(val => {
-        if(!res_sorted.hasOwnProperty(val['pair'])) {
-            res_sorted[val['pair']] = [];
-        }
-        res_sorted[val['pair']].push(val);
-
-        if(app.common_stats.date_start == 0 || app.common_stats.date_start >= val.time) {
-            app.common_stats.date_start = val.time;
-        }
-        if(app.common_stats.date_end == 0 || app.common_stats.date_end <= val.time) {
-            app.common_stats.date_end = val.time;
-        }
-    });
-
-    const stat = new Statistic();
-    let common_statistic = {};
-    for(let pair in res_sorted) {
-        let row = stat.calculate(res_sorted[pair]);
-        if(row.actions == 0) {
-            continue;
-        }
-        app.common_stats.fee += row.fee;
-        app.common_stats.volume += row.volume;
-        app.common_stats.gain += row.gain;
-
-        app.results_data.push(stat.prepareForGrid(row));
-    }
-
-
+socket.on('loadData', data => {
+    updateTable(app, data);
 });
 

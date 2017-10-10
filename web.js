@@ -1,59 +1,80 @@
 const bittrex = require('node.bittrex.api');
-//const fs = require('fs');
 const express = require('express');
 const app = express();
-//const hbs = require('express-handlebars');
-//const robots = require('express-robots');
 const server = require('http').createServer(app);
 const io = require('socket.io')(server);
-//const net = require('net');
-//const os = require('os');
-
+const fs = require('fs');
 const multer  = require('multer');
-const upload = multer({ dest: 'uploads/' });
+const readline = require('readline');
+
+let upload = multer({ dest: 'uploads/' });
 
 "use strict";
-
-var cpUpload = upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'gallery', maxCount: 8 }])
-app.post('/cool-profile', cpUpload, function (req, res, next) {
-    // req.files is an object (String -> Array) where fieldname is the key, and the value is array of files
-    //
-    // e.g.
-    //  req.files['avatar'][0] -> File
-    //  req.files['gallery'] -> Array
-    //
-    // req.body will contain the text fields, if there were any
-})
-
-
-//app.engine('hbs', hbs({extname: 'hbs'}));
-//app.set('views', (__dirname + '/views'));
-//app.set('view engine', 'hbs');
 
 app.use(express.static(__dirname + '/public'));
 app.use('/bower_components',  express.static(__dirname + '/bower_components'));
 app.use('/public',  express.static(__dirname + '/public'));
 
-app.get('/', function (req, res) {
-    //res.render('index', {url: req.get('host')});
+app.get('/', (req, res) => {
     res.sendFile(__dirname + '/public/html/index.html');
 });
 
-var cpUpload = upload.fields([{ name: 'picture'}]);
-app.put('/api', cpUpload, function(req, res, next) {
-    console.log(req.files);
+function readCsv(filename, callback) {
+    const read_stream = fs.createReadStream(filename);
+    const rl = readline.createInterface({
+        input: read_stream
+    });
+    let result = [];
+
+    let first = true;
+    rl.on('line', line => {
+        if(first) {
+            first = !first;
+            return;
+        }
+        let data = line.replace(/"/g, '').split(',');
+        result.push({
+            'type': data[3].indexOf('Buy') !== -1 ? 'buy': 'sell',
+            'pair': data[2],
+            'unit price': +data[4],
+            'quantity': +data[6],
+            'price': +(data[8] < 0 ? data[8] * -1 : data[8]),
+            'fee': 0,
+            'time': data[0]
+        });
+    });
+
+    read_stream.on('end', () => {
+        callback(result);
+    });
+
+}
+
+app.post('/upload', upload.single('csv_file'), (req, res, next) => {
     console.log(req.file);
-    console.log(req.body);
-//    res.render('index', {url: req.get('host')});
+    const max_csv_size = 111111;
+    if(req.file['mimetype'] !== 'text/csv') {
+        console.log('Wrong file type');
+    }
+    if(req.file['size'] > max_csv_size) {
+        console.log('File is too big');
+    }
+
+    readCsv(req.file['path'], result => {
+        fs.unlinkSync(req.file['path']);
+        res.status(200).send(result).end();
+    });
+
 });
 
 
-app.use(function(req, res) {
+app.use((req, res) => {
     res.status(404);
     res.send('404. Page does not exist');
 });
 
 io.on('connection', socket => {
+    console.log('new connection');
     socket.on('loadData', data => {
 
         try {
@@ -63,9 +84,9 @@ io.on('connection', socket => {
             });
 
             let url = 'https://bittrex.com/api/v1.1/account/getorderhistory';
-            bittrex.sendCustomRequest(url, function(data, err) {
+            bittrex.sendCustomRequest(url, (data, err) => {
                 if(err) {
-                    throw e;
+                    throw err;
                 }
                 let result = [];
                 for(let i = 0; i < data['result'].length; i++) {
