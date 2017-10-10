@@ -19,35 +19,79 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/public/html/index.html');
 });
 
+function formatArray(data, type) {
+    switch (type) {
+        case 0:
+            //@todo calculate fee
+            return {
+                'type': data[3].indexOf('Buy') !== -1 ? 'buy': 'sell',
+                'pair': data[2],
+                'unit price': +data[4],
+                'quantity': +data[6],
+                'price': +(data[8] < 0 ? data[8] * -1 : data[8]),
+                'fee': 0,
+                'time': data[0]
+            };
+        case 1:
+            return {
+                'type': data['result'][i]['OrderType'].indexOf('BUY') !== -1 ? 'buy': 'sell',
+                'pair': data['result'][i]['Exchange'],
+                'unit price': data['result'][i]['PricePerUnit'],
+                'quantity': data['result'][i]['Quantity'],
+                'price': data['result'][i]['Price'],
+                'fee': data['result'][i]['Commission'],
+                'time': data['result'][i]['TimeStamp']
+            };
+        case 2:
+            return {
+                'type': data[2].indexOf('BUY') !== -1 ? 'buy': 'sell',
+                'pair': data[1],
+                'unit price': +data[4],
+                'quantity': +data[3],
+                'price': +data[6],
+                'fee': +data[5],
+                'time': data[8]
+            };
+    }
+}
+function getTypeByHeader(header) {
+    if(header.indexOf('OrderUuid,Exchange,Type,Quantity,Limit,CommissionPaid,Price,Opened,Closed') !== -1) {
+        return 2;
+    }
+    if(header.indexOf('Closed Date,Opened Date,Market,Type,Bid/Ask,Units Filled,Units Total,Actual Rate,Cost / Proceeds') !== -1) {
+        return 0;
+    }
+
+    return null;
+}
+
 function readCsv(filename, callback) {
-    const read_stream = fs.createReadStream(filename);
+    const read_stream = fs.createReadStream(filename, {encoding: 'utf8'});
     const rl = readline.createInterface({
         input: read_stream
     });
     let result = [];
 
     let first = true;
+    let type = 0;
     rl.on('line', line => {
-        if(first) {
-            first = !first;
+        line = line.replace(/"/g, '').replace(/\0/g, '');
+        if(line === '') {
             return;
         }
-        let data = line.replace(/"/g, '').split(',');
-        result.push({
-            'type': data[3].indexOf('Buy') !== -1 ? 'buy': 'sell',
-            'pair': data[2],
-            'unit price': +data[4],
-            'quantity': +data[6],
-            'price': +(data[8] < 0 ? data[8] * -1 : data[8]),
-            'fee': 0,
-            'time': data[0]
-        });
+        if(first) {
+            first = !first;
+            //@todo check Null type
+            type = getTypeByHeader(line);
+            return;
+        }
+        let data = line.split(',');
+        result.push(formatArray(data, type));
     });
 
     read_stream.on('end', () => {
         callback(result);
     });
-
 }
 
 app.post('/upload', upload.single('csv_file'), (req, res, next) => {
@@ -55,9 +99,13 @@ app.post('/upload', upload.single('csv_file'), (req, res, next) => {
     const max_csv_size = 111111;
     if(req.file['mimetype'] !== 'text/csv') {
         console.log('Wrong file type');
+        res.status(200).end();
+        return;
     }
     if(req.file['size'] > max_csv_size) {
         console.log('File is too big');
+        res.status(200).end();
+        return;
     }
 
     readCsv(req.file['path'], result => {
@@ -93,15 +141,7 @@ io.on('connection', socket => {
                     if(data['result'][i]['Balance'] == 0) {
                         continue;
                     }
-                    result.push({
-                        'type': data['result'][i]['OrderType'].indexOf('BUY') !== -1 ? 'buy': 'sell',
-                        'pair': data['result'][i]['Exchange'],
-                        'unit price': data['result'][i]['PricePerUnit'],
-                        'quantity': data['result'][i]['Quantity'],
-                        'price': data['result'][i]['Price'],
-                        'fee': data['result'][i]['Commission'],
-                        'time': data['result'][i]['TimeStamp']
-                    });
+                    result.push(formatArray(data, 1));
                 }
 
                 socket.emit('loadData', result);
