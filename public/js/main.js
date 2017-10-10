@@ -152,6 +152,13 @@ Vue.component('grid', {
 let socket = io.connect('//localhost:3001');
 
 let updateTable = function(app, data) {
+    app.common_stats = {
+        fee: 0,
+        volume: 0,
+        gain: 0,
+        date_start: 0,
+        date_end: 0
+    };
     app.grid_data = data;
 
     data.reverse();
@@ -174,7 +181,6 @@ let updateTable = function(app, data) {
     let common_statistic = {};
     for(let pair in res_sorted) {
         let row = stat.calculate(res_sorted[pair]);
-        console.log(row);
         if(row.actions == 0) {
             continue;
         }
