@@ -52,6 +52,16 @@ function formatArray(data, type) {
                 'fee': +data[5],
                 'time': data[8]
             };
+        case 3:
+            return {
+                'type': data[3].toLowerCase(),
+                'pair': data[1],
+                'unit price': +data[4],
+                'quantity': +data[5],
+                'price': +data[6],
+                'fee': data[6] * parseFloat(data[7]) / 100,
+                'time': data[0]
+            };
     }
 }
 function getTypeByHeader(header) {
@@ -60,6 +70,9 @@ function getTypeByHeader(header) {
     }
     if(header.indexOf('Closed Date,Opened Date,Market,Type,Bid/Ask,Units Filled,Units Total,Actual Rate,Cost / Proceeds') !== -1) {
         return 0;
+    }
+    if(header.indexOf('Date,Market,Category,Type,Price,Amount,Total,Fee,Order Number,Base Total Less Fee,Quote Total Less Fee') !== -1) {
+        return 3;
     }
 
     return null;
@@ -96,7 +109,7 @@ function readCsv(filename, callback) {
 
 app.post('/upload', upload.single('csv_file'), (req, res, next) => {
     console.log(req.file);
-    const max_csv_size = 111111;
+    const max_csv_size = 1111111;
     if(req.file['mimetype'] !== 'text/csv') {
         console.log('Wrong file type');
         res.status(200).end();
@@ -138,7 +151,7 @@ io.on('connection', socket => {
                 }
                 let result = [];
                 for(let i = 0; i < data['result'].length; i++) {
-                    if(data['result'][i]['Balance'] == 0) {
+                    if(parseInt(data['result'][i]['Balance']) === 0) {
                         continue;
                     }
                     result.push(formatArray(data, 1));

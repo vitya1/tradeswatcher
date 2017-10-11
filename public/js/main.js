@@ -213,7 +213,7 @@ const app = new Vue({
                 console.log('Wrong file type');
                 return;
             }
-            if(t.size > 111111) {
+            if(t.size > 1111111) {
                 console.log('File is too big');
                 return;
             }
