@@ -23,15 +23,17 @@ function formatArray(data, type) {
     switch (type) {
         case 0:
             //@todo calculate fee
-            return {
+            let res = {
                 'type': data[3].indexOf('Buy') !== -1 ? 'buy': 'sell',
                 'pair': data[2],
                 'unit price': +data[4],
                 'quantity': +data[6],
-                'price': +(data[8] < 0 ? data[8] * -1 : data[8]),
+                'price': data[4] * data[6],
                 'fee': 0,
                 'time': data[0]
             };
+            res.fee = +(data[8] < 0 ? data[8] * -1 : data[8]) - res.price;
+            return res;
         case 1:
             return {
                 'type': data['result'][i]['OrderType'].indexOf('BUY') !== -1 ? 'buy': 'sell',
