@@ -178,9 +178,13 @@ let updateTable = function(app, data) {
         if(row.actions == 0) {
             continue;
         }
-        app.common_stats.fee += row.fee;
-        app.common_stats.volume += row.volume;
-        app.common_stats.gain += row.gain;
+        let base_coin = pair.split('-')[0];
+        app.common_stats.fee.set(base_coin, (app.common_stats.fee.has(base_coin)
+            ? app.common_stats.fee.get(base_coin) : 0) + row.fee);
+        app.common_stats.volume.set(base_coin, (app.common_stats.volume.has(base_coin)
+            ? app.common_stats.volume.get(base_coin) : 0) + row.volume);
+        app.common_stats.gain.set(base_coin, (app.common_stats.gain.has(base_coin)
+            ? app.common_stats.gain.get(base_coin) : 0) + row.gain);
 
         app.results_data.push(stat.prepareForGrid(row));
     }
@@ -199,11 +203,22 @@ const app = new Vue({
         results_data: [],
 
         common_stats: {
-            fee: 0,
-            volume: 0,
-            gain: 0,
+            fee: new Map(),
+            volume: new Map(),
+            gain: new Map(),
             date_start: 0,
             date_end: 0
+        }
+    },
+    computed: {
+        common_fee: function() {
+            return this.renderStatistic(this.common_stats.fee);
+        },
+        common_volume: function() {
+            return this.renderStatistic(this.common_stats.volume);
+        },
+        common_gain: function() {
+            return this.renderStatistic(this.common_stats.gain);
         }
     },
     methods: {
@@ -238,12 +253,19 @@ const app = new Vue({
             this.grid_data = [];
             this.results_data = [];
             this.common_stats = {
-                fee: 0,
-                volume: 0,
-                gain: 0,
+                fee: new Map(),
+                volume: new Map(),
+                gain: new Map(),
                 date_start: 0,
                 date_end: 0
             };
+        },
+        renderStatistic: function(items) {
+            let res = [];
+            for(let data of items.entries()) {
+                res.push(data[1].toFixed(6) + ' ' + data[0]);
+            }
+            return res.join(', ');
         }
     }
 });

@@ -22,7 +22,6 @@ app.get('/', (req, res) => {
 function formatArray(data, type) {
     switch (type) {
         case 0:
-            //@todo calculate fee
             let res = {
                 'type': data[3].indexOf('Buy') !== -1 ? 'buy': 'sell',
                 'pair': data[2],
@@ -55,9 +54,10 @@ function formatArray(data, type) {
                 'time': data[8]
             };
         case 3:
+            let coin = data[1].split('/');
             return {
                 'type': data[3].toLowerCase(),
-                'pair': data[1],
+                'pair': coin[1] + '-' + coin[0],
                 'unit price': +data[4],
                 'quantity': +data[5],
                 'price': +data[6],
