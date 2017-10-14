@@ -46,7 +46,15 @@
 
         <div>
             <h3>In total</h3>
-            <p>Time range: {{common_stats.date_start}} - {{common_stats.date_end}}</p>
+            <div class="form-inline">
+                <div class="form-group">
+                    <p>
+                        Time range:
+                        <input class="form-control" v-on:change="filterGrid" type="date" v-model="common_stats.date_start">
+                        <input class="form-control" v-on:change="filterGrid" type="date" v-model="common_stats.date_end">
+                    </p>
+                </div>
+            </div>
             <p>Gain: {{common_gain}}</p>
             <p>Fee: {{common_fee}}</p>
             <p>Volume: {{common_volume}}</p>

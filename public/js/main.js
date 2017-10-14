@@ -94,20 +94,18 @@ class Statistic {
 
 };
 
-// register the grid component
 Vue.component('grid', {
     template: '#grid-template',
     replace: true,
     props: {
         data: Array,
         columns: Array,
-        filterKey: String
     },
     data: function () {
-        var sortOrders = {}
+        var sortOrders = {};
         this.columns.forEach(function (key) {
-            sortOrders[key] = 1
-        })
+            sortOrders[key] = 1;
+        });
         return {
             sortKey: '',
             sortOrders: sortOrders
@@ -115,25 +113,17 @@ Vue.component('grid', {
     },
     computed: {
         filteredData: function () {
-            var sortKey = this.sortKey
-            var filterKey = this.filterKey && this.filterKey.toLowerCase()
-            var order = this.sortOrders[sortKey] || 1
-            var data = this.data
-            if (filterKey) {
-                data = data.filter(function (row) {
-                    return Object.keys(row).some(function (key) {
-                        return String(row[key]).toLowerCase().indexOf(filterKey) > -1
-                    })
-                })
-            }
+            var sortKey = this.sortKey;
+            var order = this.sortOrders[sortKey] || 1;
+            var data = this.data;
             if (sortKey) {
                 data = data.slice().sort(function (a, b) {
-                    a = a[sortKey]
-                    b = b[sortKey]
-                    return (a === b ? 0 : a > b ? 1 : -1) * order
+                    a = a[sortKey];
+                    b = b[sortKey];
+                    return (a === b ? 0 : a > b ? 1 : -1) * order;
                 })
             }
-            return data
+            return data;
         }
     },
     filters: {
@@ -143,8 +133,8 @@ Vue.component('grid', {
     },
     methods: {
         sortBy: function (key) {
-            this.sortKey = key
-            this.sortOrders[key] = this.sortOrders[key] * -1
+            this.sortKey = key;
+            this.sortOrders[key] = this.sortOrders[key] * -1;
         }
     }
 });
@@ -172,7 +162,6 @@ let updateTable = function(app, data) {
     });
 
     const stat = new Statistic();
-    let common_statistic = {};
     for(let pair in res_sorted) {
         let row = stat.calculate(res_sorted[pair]);
         if(row.actions == 0) {
@@ -195,6 +184,8 @@ const app = new Vue({
     data: {
         api_key: '',
         secret_key: '',
+
+        raw_data: [],
 
         grid_columns: ['time', 'type', 'pair', 'price', 'unit price', 'quantity', 'fee'],
         grid_data:[],
@@ -239,8 +230,32 @@ const app = new Vue({
                     'Content-Type': 'multipart/form-data; boundary=' + Date.now()
                 }
             }).then(response => {
+                app.raw_data = response.data;
                 updateTable(this, response.data);
             });
+        },
+        filterGrid: function() {
+            if(this.common_stats.date_start) {
+                this.grid_data = this.raw_data.filter((row) => {
+                    if((new Date(this.common_stats.date_start)).getTime()
+                        >= (new Date(row.time)).getTime()) {
+                        return true;
+                    }
+                });
+            }
+            if(this.common_stats.date_end) {
+                this.grid_data = this.raw_data.filter((row) => {
+                    if(this.common_stats.date_end <= row.time) {
+                        return true;
+                    }
+                    if((new Date(this.common_stats.date_end + ' 23:59:59')).getTime()
+                        <= (new Date(row.time)).getTime()) {
+                        return true;
+                    }
+                });
+            }
+            //@todo make binding
+            updateTable(this, this.grid_data);
         },
         loadData: function(e) {
             e.preventDefault();
@@ -271,6 +286,7 @@ const app = new Vue({
 });
 
 socket.on('loadData', data => {
+    app.raw_data = data;
     updateTable(app, data);
 });
 
