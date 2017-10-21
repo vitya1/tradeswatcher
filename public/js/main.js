@@ -141,6 +141,12 @@ Vue.component('grid', {
 
 let socket = io.connect('//localhost:3001');
 
+let formatInputDate = function(raw_date) {
+    let date = (new Date(raw_date));
+    let m = date.getMonth() > 9 ? date.getMonth() : '0' + date.getMonth();
+    let d = date.getDate() > 9 ? date.getDate() : '0' + date.getDate();
+    return date.getFullYear() + '-' + m + '-' + d;
+};
 let updateTable = function(app, data) {
     app.resetStatistic();
     app.grid_data = data;
@@ -154,10 +160,10 @@ let updateTable = function(app, data) {
         res_sorted[val['pair']].push(val);
 
         if(app.common_stats.date_start == 0 || app.common_stats.date_start >= val.time) {
-            app.common_stats.date_start = val.time;
+            app.common_stats.date_start = formatInputDate(val.time);
         }
         if(app.common_stats.date_end == 0 || app.common_stats.date_end <= val.time) {
-            app.common_stats.date_end = val.time;
+            app.common_stats.date_end = formatInputDate(val.time);
         }
     });
 
@@ -169,11 +175,11 @@ let updateTable = function(app, data) {
         }
         let base_coin = pair.split('-')[0];
         app.common_stats.fee.set(base_coin, (app.common_stats.fee.has(base_coin)
-            ? app.common_stats.fee.get(base_coin) : 0) + row.fee);
+                ? app.common_stats.fee.get(base_coin) : 0) + row.fee);
         app.common_stats.volume.set(base_coin, (app.common_stats.volume.has(base_coin)
-            ? app.common_stats.volume.get(base_coin) : 0) + row.volume);
+                ? app.common_stats.volume.get(base_coin) : 0) + row.volume);
         app.common_stats.gain.set(base_coin, (app.common_stats.gain.has(base_coin)
-            ? app.common_stats.gain.get(base_coin) : 0) + row.gain);
+                ? app.common_stats.gain.get(base_coin) : 0) + row.gain);
 
         app.results_data.push(stat.prepareForGrid(row));
     }
@@ -236,20 +242,20 @@ const app = new Vue({
         },
         filterGrid: function() {
             if(this.common_stats.date_start) {
+                let date_start = (new Date(this.common_stats.date_start)).getTime();
                 this.grid_data = this.raw_data.filter((row) => {
-                    if((new Date(this.common_stats.date_start)).getTime()
-                        >= (new Date(row.time)).getTime()) {
+                    if(date_start <= (new Date(row.time)).getTime()) {
                         return true;
                     }
                 });
             }
             if(this.common_stats.date_end) {
+                let date_end = (new Date(this.common_stats.date_end + ' 23:59:59')).getTime();
                 this.grid_data = this.raw_data.filter((row) => {
-                    if(this.common_stats.date_end <= row.time) {
+                    if(date_end >= (new Date(row.time)).getTime()) {
                         return true;
                     }
-                    if((new Date(this.common_stats.date_end + ' 23:59:59')).getTime()
-                        <= (new Date(row.time)).getTime()) {
+                    if(date_end >= (new Date(row.time)).getTime()) {
                         return true;
                     }
                 });
