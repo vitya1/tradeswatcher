@@ -37,8 +37,12 @@
                     <button v-on:click="loadData" class="btn btn-default">Load</button>
                 </div>
                 <p>or</p>
+
                 <div class="form-group">
-                    <input type="file" v-on:change="loadFile" class="form-control" id="file_content" maxsize="111111" accept="text/csv">
+                    <label for="file_content" class="btn btn-default">
+                        <span>Browse csv file</span>
+                        <input  style="display:none;" type="file" v-on:change="loadFile" id="file_content" maxsize="111111" accept="text/csv"/>
+                    </label>
                 </div>
 
             </div>
