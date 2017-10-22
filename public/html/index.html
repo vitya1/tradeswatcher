@@ -6,6 +6,8 @@
     <link rel="stylesheet" href="/bower_components/bootstrap/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="/css/sandstone.bootstrap.min.css">
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
     <script src="/bower_components/vue/dist/vue.min.js"></script>
     <script src="/bower_components/vue-router/dist/vue-router.min.js"></script>
     <script src="/bower_components/vue-resource/dist/vue-resource.min.js"></script>
@@ -18,53 +20,69 @@
 
 <div id="app" class="container">
 
-    <div class="simple-head">
+    <div class="row simple-head">
         <h1>Trades watcher</h1>
-        <p class="lead">Probably the best cryptocurrency trades analytic tool</p>
+        <p class="text-muted">Probably the best cryptocurrency trades analytic tool (not yet)</p>
     </div>
 
     <div class="main-block">
 
-        <form method="POST" enctype="multipart/form-data" action="/upload">
-            <div class="form-inline">
-                <div class="form-group">
-                    <input v-model="api_key" class="form-control" placeholder="api key">
-                </div>
-                <div class="form-group">
-                    <input v-model="secret_key" class="form-control" placeholder="secret key">
-                </div>
-                <div class="form-group">
-                    <button v-on:click="loadData" class="btn btn-default">Load</button>
-                </div>
-                <p>or</p>
+        <div class="row">
+            <form method="POST" enctype="multipart/form-data" action="/upload">
+                <div class="form-inline">
+                    <div class="form-group">
+                        <input v-model="api_key" class="form-control col-lg-1" placeholder="api key">
+                    </div>
+                    <div class="form-group">
+                        <input v-model="secret_key" class="form-control" placeholder="secret key">
+                    </div>
+                    <div class="form-group">
+                        <button v-on:click="loadData" class="btn btn-default">Load</button>
+                    </div>
+                    <span class="uploaders_delimiter">or</span>
 
-                <div class="form-group">
-                    <label for="file_content" class="btn btn-default">
-                        <span>Browse csv file</span>
-                        <input  style="display:none;" type="file" v-on:change="loadFile" id="file_content" maxsize="111111" accept="text/csv"/>
-                    </label>
+                    <div class="form-group">
+                        <label for="file_content" class="btn btn-default">
+                            <span><i class="fa fa-file" aria-hidden="true"></i> Browse csv file</span>
+                            <input  style="display:none;" type="file" v-on:change="loadFile" id="file_content" maxsize="111111" accept="text/csv"/>
+                        </label>
+                    </div>
                 </div>
 
-            </div>
-        </form>
-
-        <div>
-            <h3>In total</h3>
-            <div class="form-inline">
-                <div class="form-group">
-                    <p>
-                        Time range:
-                        <input class="form-control" v-on:change="filterGrid" type="date" v-model="common_stats.date_start">
-                        <input class="form-control" v-on:change="filterGrid" type="date" v-model="common_stats.date_end">
-                    </p>
-                </div>
-            </div>
-            <p>Gain: {{common_gain}}</p>
-            <p>Fee: {{common_fee}}</p>
-            <p>Volume: {{common_volume}}</p>
+            </form>
         </div>
 
-        <div>
+        <div class="row filter-row well well-sm">
+            <div class="col-lg-offset-0 col-md-offset-0 col-lg-8 col-md-8 text-left">
+                <span>
+                    <b>Gain:</b>
+                    <span v-if="results_data.length">{{common_gain}};</span>
+                    <span v-else><i class="fa fa-pied-piper"></i></span>
+                </span>
+                <span>
+                    <b>Volume:</b>
+                    <span v-if="results_data.length">{{common_volume}};</span>
+                    <span v-else><i class="fa fa-heart"></i></span>
+                </span>
+                <span>
+                    <b>Fee:</b>
+                    <span v-if="results_data.length">{{common_fee}};</span>
+                    <span v-else><i class="fa fa-btc"></i></span>
+                </span>
+            </div>
+
+            <div class="col-lg-4 col-md-4">
+                <div class="form-inline" v-if="results_data.length">
+                    <div class="form-group"  data-toggle="tooltip" data-placement="bottom" title="Date range">
+                            <input class="form-control input-sm" v-on:change="filterGrid" type="date" v-model="common_stats.date_start">
+                            <input class="form-control input-sm" v-on:change="filterGrid" type="date" v-model="common_stats.date_end">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div v-if="results_data.length">
             <h3>Result</h3>
             <grid
                 :data="results_data"
@@ -72,7 +90,7 @@
             </grid>
         </div>
 
-        <div>
+        <div v-if="grid_data.length">
             <h3>Raw data</h3>
             <grid
                 :data="grid_data"
