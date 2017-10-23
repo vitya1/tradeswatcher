@@ -72,10 +72,10 @@
             </div>
 
             <div class="col-lg-4 col-md-4">
-                <div class="form-inline" v-if="results_data.length">
+                <div class="form-inline">
                     <div class="form-group"  data-toggle="tooltip" data-placement="bottom" title="Date range">
-                            <input class="form-control input-sm" v-on:change="filterGrid" type="date" v-model="common_stats.date_start">
-                            <input class="form-control input-sm" v-on:change="filterGrid" type="date" v-model="common_stats.date_end">
+                        <input class="form-control input-sm" v-on:change="filterGrid" type="date" v-model="common_stats.date_start">
+                        <input class="form-control input-sm" v-on:change="filterGrid" type="date" v-model="common_stats.date_end">
                     </div>
                 </div>
             </div>

@@ -143,9 +143,26 @@ let socket = io.connect('//localhost:3001');
 
 let formatInputDate = function(raw_date) {
     let date = (new Date(raw_date));
-    let m = date.getMonth() > 9 ? date.getMonth() : '0' + date.getMonth();
+    let m = date.getMonth() + 1;
+    m = m > 9 ? m : '0' + m;
     let d = date.getDate() > 9 ? date.getDate() : '0' + date.getDate();
     return date.getFullYear() + '-' + m + '-' + d;
+};
+let updateFilterDates = function(app) {
+    app.grid_data.forEach(val => {
+        let timespamp = (new Date(val.time)).getTime();
+
+        if(app.common_stats.date_start == 0
+            || app.common_stats.date_start >= timespamp) {
+            app.common_stats.date_start = timespamp;
+        }
+        if(app.common_stats.date_end == 0
+            || app.common_stats.date_end <= timespamp) {
+            app.common_stats.date_end = timespamp;
+        }
+    });
+    app.common_stats.date_end = formatInputDate(app.common_stats.date_end);
+    app.common_stats.date_start = formatInputDate(app.common_stats.date_start);
 };
 let updateTable = function(app, data) {
     app.resetStatistic();
@@ -158,13 +175,6 @@ let updateTable = function(app, data) {
             res_sorted[val['pair']] = [];
         }
         res_sorted[val['pair']].push(val);
-
-        if(app.common_stats.date_start == 0 || app.common_stats.date_start >= val.time) {
-            app.common_stats.date_start = formatInputDate(val.time);
-        }
-        if(app.common_stats.date_end == 0 || app.common_stats.date_end <= val.time) {
-            app.common_stats.date_end = formatInputDate(val.time);
-        }
     });
 
     const stat = new Statistic();
@@ -238,28 +248,17 @@ const app = new Vue({
             }).then(response => {
                 app.raw_data = response.data;
                 updateTable(this, response.data);
+                updateFilterDates(app);
             });
         },
         filterGrid: function() {
-            if(this.common_stats.date_start) {
-                let date_start = (new Date(this.common_stats.date_start)).getTime();
-                this.grid_data = this.raw_data.filter((row) => {
-                    if(date_start <= (new Date(row.time)).getTime()) {
-                        return true;
-                    }
-                });
-            }
-            if(this.common_stats.date_end) {
-                let date_end = (new Date(this.common_stats.date_end + ' 23:59:59')).getTime();
-                this.grid_data = this.raw_data.filter((row) => {
-                    if(date_end >= (new Date(row.time)).getTime()) {
-                        return true;
-                    }
-                    if(date_end >= (new Date(row.time)).getTime()) {
-                        return true;
-                    }
-                });
-            }
+            let date_end = (new Date(this.common_stats.date_end + ' 23:59:59')).getTime();
+            let date_start = (new Date(this.common_stats.date_start)).getTime();
+            this.grid_data = this.raw_data.filter((row) => {
+                let cur_date = (new Date(row.time)).getTime();
+                return date_start <= cur_date && date_end >= cur_date;
+            });
+
             //@todo make binding
             updateTable(this, this.grid_data);
         },
@@ -273,13 +272,9 @@ const app = new Vue({
         resetStatistic: function() {
             this.grid_data = [];
             this.results_data = [];
-            this.common_stats = {
-                fee: new Map(),
-                volume: new Map(),
-                gain: new Map(),
-                date_start: 0,
-                date_end: 0
-            };
+            this.common_stats.fee = new Map();
+            this.common_stats.volume = new Map();
+            this.common_stats.gain = new Map();
         },
         renderStatistic: function(items) {
             let res = [];
@@ -294,5 +289,6 @@ const app = new Vue({
 socket.on('loadData', data => {
     app.raw_data = data;
     updateTable(app, data);
+    updateFilterDates(app);
 });
 
