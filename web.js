@@ -136,6 +136,8 @@ app.use((req, res) => {
     res.send('404. Page does not exist');
 });
 
+
+let current_price = [];
 io.on('connection', socket => {
     console.log('new connection');
     socket.on('loadData', data => {
@@ -171,4 +173,17 @@ io.on('connection', socket => {
 
 server.listen(3001, '127.0.0.1');
 
+setInterval(() => {
+    https.get('https://api.coinmarketcap.com/v1/ticker/', res => {
+        let data = '';
+        res.on('data', (d) => {
+            data += d.toString();
+        });
+        res.on('end', () => {
+            current_price = JSON.parse(data);
+        });
+    }).on('error', (e) => {
+        console.error(e);
+    });
+}, 60000);
 
