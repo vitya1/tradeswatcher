@@ -3,3 +3,4 @@ package-lock.json
 .idea/*
 bower_components/*
 node_modules/*
+yarn.lock
