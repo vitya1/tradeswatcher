@@ -1,12 +1,12 @@
 const https = require('https');
 const fs = require('fs');
-const md5 = require('md5');
 
 "use strict";
 
 function saveStats(pair, period) {
     function doRequest(url) {
         return new Promise ((resolve, reject) => {
+            console.log(url);
             https.get(url, (res) => {
                 if (res.statusCode >= 300 && res.statusCode <= 400 && res.headers.location) {
                     doRequest(res.headers.location);
@@ -16,7 +16,8 @@ function saveStats(pair, period) {
                     data += d;
                 });
                 res.on('end', () => {
-                    //console.log(JSON.parse(data));
+                    let result = JSON.parse(data);
+                    console.log('Parsed ' + result.length + ' items');
                     resolve(JSON.parse(data));
                 });
 
@@ -27,20 +28,34 @@ function saveStats(pair, period) {
         });
     }
 
-    const sec_in_month = 2592000; // 30 days
+    function promiseWaterfall(array) {
+        let index = 0;
+        return new Promise((resolve, reject) => {
+            function next() {
+                if(index < array.length) {
+                    array[index++]().then(next, reject);
+                }
+                else {
+                    resolve();
+                }
+            }
+            next();
+        });
+    }
+
+    const sec_in_month = 5400; // 1/12 days
     let end = Math.floor(Date.now() / 1000 - 4 * 24 * 3600);
     let requests = [];
     for(let i = 1; i <= period; i++) {
         let start = end - sec_in_month;
-        console.log(start, end, end - start);
+        //console.log(start, end, end - start);
         let url = 'https://poloniex.com/public?command=returnTradeHistory&currencyPair=' + pair + '&start=' + start + '&end=' + end;
-        console.log(url);
         let t = doRequest.bind(this, url);
-        requests.push(t());
+        requests.push(t);
         end = start;
     }
 
-    Promise.all(requests).then(values => {
+    promiseWaterfall(requests).then(values => {
         let val = [];
         values.forEach(item => {
             val = val.concat(item);
@@ -54,11 +69,13 @@ function saveStats(pair, period) {
             console.log("The file was saved!");
         });
 
+    }, reason => {
+        console.log('Something wrong happened:', reason);
     });
 
 }
 
-//saveStats('BTC_BCH', 3);
+saveStats('BTC_BCH', 1440);
 
 function groupData(data, length) {
     let chart = [];
@@ -93,6 +110,7 @@ function groupData(data, length) {
 
     return chart;
 }
+/*
 
 fs.readFile('./BTC_BCH.json', 'utf-8', (err, data) => {
     let array = JSON.parse(data);
@@ -101,3 +119,4 @@ fs.readFile('./BTC_BCH.json', 'utf-8', (err, data) => {
     //console.log(chart);
 });
 
+*/
