@@ -28,61 +28,62 @@ function saveStats(pair, period) {
         });
     }
 
-    function promiseWaterfall(array) {
+    function promiseWaterfall(wstream, array) {
         let index = 0;
+        let values = 0;
         return new Promise((resolve, reject) => {
             function next() {
                 if(index < array.length) {
-                    array[index++]().then(next, reject);
+                    array[index++]().then(val => {
+                        while(val.length > 0) {
+                            let data = JSON.stringify(val.pop());
+                            wstream.write(data + (val.length > 0 ? ',' : ''));
+                            values++;
+                        }
+                        next();
+                    }, reject);
                 }
                 else {
-                    resolve();
+                    resolve({blocks: index, elements: values});
                 }
             }
             next();
         });
     }
 
-    const sec_in_month = 5400; // 1/12 days
-    let end = Math.floor(Date.now() / 1000 - 4 * 24 * 3600);
+    const sec_in_block = 5400; // 1/16 days
+    const block_in_day = 16;
+    const sec_in_day = 24 * 3600;
+    let end = Math.floor(Date.now() / 1000 - 4 * sec_in_day);
     let requests = [];
-    for(let i = 1; i <= period; i++) {
-        let start = end - sec_in_month;
-        //console.log(start, end, end - start);
+    for(let i = 1; i <= period * block_in_day; i++) {
+        let start = end - sec_in_block;
         let url = 'https://poloniex.com/public?command=returnTradeHistory&currencyPair=' + pair + '&start=' + start + '&end=' + end;
         let t = doRequest.bind(this, url);
         requests.push(t);
         end = start;
     }
 
-    promiseWaterfall(requests).then(values => {
-        let val = [];
-        values.forEach(item => {
-            val = val.concat(item);
-        });
+    let wstream = fs.createWriteStream('./' + pair + '.json', {flags: 'a'});
+    wstream.write('[');
+    promiseWaterfall(wstream, requests).then(res => {
+        console.log('Total elements:' + res.elements + '; blocks: ' + res.blocks + ' (block size ' + sec_in_block + 'sec.); parsed period: '+ res.blocks * sec_in_block / sec_in_day + ' day(s)');
 
-        console.log('Total elements:' + val.length + '; months: ' + values.length);
-        fs.writeFile('./' + pair + '.json', JSON.stringify(val), function(err) {
-            if(err) {
-                return console.log(err);
-            }
-            console.log("The file was saved!");
-        });
-
+        wstream.write(']');
+        wstream.end();
     }, reason => {
         console.log('Something wrong happened:', reason);
     });
 
 }
 
-saveStats('BTC_BCH', 1440);
+//saveStats('BTC_ETH', 3);
+saveStats('BTC_XRP', 90);
 
 function groupData(data, length) {
     let chart = [];
     let cur = {t: null,o: null,h: null,l: null,c: null};
     let start_time_period = null;
-    //@todo не обрабатывается (вставляется) последний бар
-    //@todo не учитывается что бары могут быть разряженные. сейчас все бары будут друг ха другом даже если они на расстоянии много больше ltngth друг от друга
     for(let i = 0; i < data.length; i++) {
         let item = data[i];
         let d = (new Date(item['date'])).getTime();
