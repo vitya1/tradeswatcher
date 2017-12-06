@@ -3,22 +3,35 @@ const fs = require('fs');
 
 "use strict";
 
-function saveStats(pair, period) {
+function saveStats(pair, period, callback) {
+    console.log('Start pair ' + pair);
     function doRequest(url) {
         return new Promise ((resolve, reject) => {
             console.log(url);
             https.get(url, (res) => {
                 if (res.statusCode >= 300 && res.statusCode <= 400 && res.headers.location) {
-                    doRequest(res.headers.location);
+                    doRequest(res.headers.location).then(res => {
+                        resolve(res);
+                    });
+                    return;
                 }
                 let data = '';
                 res.on('data', d => {
                     data += d;
                 });
                 res.on('end', () => {
-                    let result = JSON.parse(data);
-                    console.log('Parsed ' + result.length + ' items');
-                    resolve(JSON.parse(data));
+                    try {
+                        let result = JSON.parse(data);
+                        console.log('Parsed ' + result.length + ' items');
+                        resolve(result);
+                    }
+                    catch(e) {
+                        console.log('Parse error! Reparsing...');
+                        doRequest(url).then(res => {
+                            resolve(res);
+                        });
+                        return;
+                    }
                 });
 
             }).on('error', (e) => {
@@ -31,13 +44,17 @@ function saveStats(pair, period) {
     function promiseWaterfall(wstream, array) {
         let index = 0;
         let values = 0;
+        let sep = '';
         return new Promise((resolve, reject) => {
             function next() {
                 if(index < array.length) {
                     array[index++]().then(val => {
                         while(val.length > 0) {
                             let data = JSON.stringify(val.pop());
-                            wstream.write(data + (val.length > 0 ? ',' : ''));
+                            wstream.write(sep + data);
+                            if(!sep) {
+                                sep = ',';
+                            }
                             values++;
                         }
                         next();
@@ -64,21 +81,23 @@ function saveStats(pair, period) {
         end = start;
     }
 
-    let wstream = fs.createWriteStream('./' + pair + '.json', {flags: 'a'});
+    const wstream = fs.createWriteStream('./' + pair + '.json', {flags: 'a'});
     wstream.write('[');
     promiseWaterfall(wstream, requests).then(res => {
         console.log('Total elements:' + res.elements + '; blocks: ' + res.blocks + ' (block size ' + sec_in_block + 'sec.); parsed period: '+ res.blocks * sec_in_block / sec_in_day + ' day(s)');
 
         wstream.write(']');
         wstream.end();
+
+        if(callback) {
+            callback();
+        }
     }, reason => {
         console.log('Something wrong happened:', reason);
     });
 
 }
 
-//saveStats('BTC_ETH', 3);
-saveStats('BTC_XRP', 90);
 
 function groupData(data, length) {
     let chart = [];
@@ -95,7 +114,7 @@ function groupData(data, length) {
         }
         if(d - start_time_period > length) {
             start_time_period += length;
-            chart.push({t: (new Date(cur['t'])).getTime(),o: parseFloat(cur['o']),h: parseFloat(cur['h']),l: parseFloat(cur['l']),c: parseFloat(cur['c'])});
+            chart.push({ht: (new Date(cur['t'])), t: (new Date(cur['t'])).getTime(),o: parseFloat(cur['o']),h: parseFloat(cur['h']),l: parseFloat(cur['l']),c: parseFloat(cur['c'])});
             cur = {t: start_time_period,o: item['rate'],h: item['rate'],l: item['rate'],c: item['rate']};
             continue;
         }
@@ -111,13 +130,74 @@ function groupData(data, length) {
 
     return chart;
 }
-/*
 
-fs.readFile('./BTC_BCH.json', 'utf-8', (err, data) => {
-    let array = JSON.parse(data);
-    array.reverse();
-    let chart = groupData(array, 5 * 60 * 1000);
-    //console.log(chart);
-});
+function rawToChart(file, chart_period) {
+    const stream = fs.createReadStream(file, {flags: 'r', encoding: 'utf-8'});
+    let buf = '';
 
-*/
+    let data = [];
+    stream.on('data', function(d) {
+        buf += d.toString();
+
+        let pos;
+        while ((pos = buf.indexOf('},{')) >= 0 || (pos = buf.indexOf('}]')) >= 0) {
+            if(pos == 0) {
+                buf = buf.slice(1);
+                continue;
+            }
+            let line = buf.slice(1, pos + 1);
+            try {
+                data.push(JSON.parse(line));
+            }
+            catch(e) {
+                line.split('}{').forEach((elem, index) => {
+                    data.push(elem);
+                    console.log('better this than sorry');
+                });
+            }
+
+            buf = buf.slice(pos + 1);
+        }
+    });
+    stream.on('end', function() {
+        let chart = groupData(data, chart_period * 60 * 1000);
+        fs.writeFile(file.replace('.json', '') + '_chart_' + chart_period + '.json', JSON.stringify(chart), () => {});
+    });
+}
+
+function extractChartParam(chart, param, file) {
+    let data = [];
+    for(let i = 0; i < chart.length; i++) {
+        data.push(chart[i][param]);
+    }
+    fs.writeFile(file, JSON.stringify(data), (err, data) => {});
+}
+
+function calculateEMA(chart, period, subject) {
+    subject = subject || 'c';
+    let a = 2 / (period + 1);
+    let ema = [];
+    let ema_prev = chart[0][subject];
+    for(let i = 1; i < chart.length; i++) {
+        let ema_cur = a * chart[i][subject] + (1 - a) * ema_prev;
+        ema.push(ema_cur);
+        ema_prev = ema_cur;
+    }
+
+    return ema;
+}
+
+
+function calculateSMA(chart, period, subject) {
+    subject = subject || 'c'; //close
+    let sma = [];
+    //@todo fill first with null
+    for(let i = period - 1; i < chart.length; i++) {
+        let sma_i = 0;
+        for(let j = 0; j < period; j++) {
+            sma_i += chart[i - j][subject];
+        }
+        sma.push(sma_i / period);
+    }
+    return sma;
+}
