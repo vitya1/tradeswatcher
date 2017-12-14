@@ -1,5 +1,6 @@
 const https = require('https');
 const fs = require('fs');
+const progress = require('progress');
 
 "use strict";
 
@@ -7,7 +8,6 @@ function saveStats(pair, period, callback) {
     console.log('Start pair ' + pair);
     function doRequest(url) {
         return new Promise ((resolve, reject) => {
-            console.log(url);
             https.get(url, (res) => {
                 if (res.statusCode >= 300 && res.statusCode <= 400 && res.headers.location) {
                     doRequest(res.headers.location).then(res => {
@@ -22,7 +22,9 @@ function saveStats(pair, period, callback) {
                 res.on('end', () => {
                     try {
                         let result = JSON.parse(data);
-                        console.log('Parsed ' + result.length + ' items');
+                        bar.tick({
+                            last_parsed: result.length
+                        });
                         resolve(result);
                     }
                     catch(e) {
@@ -49,6 +51,7 @@ function saveStats(pair, period, callback) {
             function next() {
                 if(index < array.length) {
                     array[index++]().then(val => {
+                        val.reverse();
                         while(val.length > 0) {
                             let data = JSON.stringify(val.pop());
                             wstream.write(sep + data);
@@ -71,8 +74,15 @@ function saveStats(pair, period, callback) {
     const sec_in_block = 5400; // 1/16 days
     const block_in_day = 16;
     const sec_in_day = 24 * 3600;
-    let end = Math.floor(Date.now() / 1000 - 4 * sec_in_day);
+    let start = Math.floor(Date.now() / 1000);
+    let end = start - 4 * sec_in_day;
     let requests = [];
+    let bar = new progress('Parsing [:bar] :percent Items :last_parsed', {
+        complete: '=',
+        incomplete: ' ',
+        width: 30,
+        total: period * block_in_day
+    });
     for(let i = 1; i <= period * block_in_day; i++) {
         let start = end - sec_in_block;
         let url = 'https://poloniex.com/public?command=returnTradeHistory&currencyPair=' + pair + '&start=' + start + '&end=' + end;
@@ -84,7 +94,8 @@ function saveStats(pair, period, callback) {
     const wstream = fs.createWriteStream('./' + pair + '.json', {flags: 'a'});
     wstream.write('[');
     promiseWaterfall(wstream, requests).then(res => {
-        console.log('Total elements:' + res.elements + '; blocks: ' + res.blocks + ' (block size ' + sec_in_block + 'sec.); parsed period: '+ res.blocks * sec_in_block / sec_in_day + ' day(s)');
+        console.log('Total elements:' + res.elements + '; blocks: ' + res.blocks + ' (block size ' + sec_in_block + 'sec.); parsed period: '
+            + res.blocks * sec_in_block / sec_in_day + ' day(s) (Start ' + new Date(end*1000) + '(' + end + ')), end ' + new Date(start*1000) + '(' + start + '))');
 
         wstream.write(']');
         wstream.end();
@@ -99,43 +110,17 @@ function saveStats(pair, period, callback) {
 }
 
 
-function groupData(data, length) {
-    let chart = [];
-    let cur = {t: null,o: null,h: null,l: null,c: null};
-    let start_time_period = null;
-    for(let i = 0; i < data.length; i++) {
-        let item = data[i];
-        let d = (new Date(item['date'])).getTime();
-        //initialising the first bar
-        if(start_time_period == null) {
-            start_time_period = d;
-            cur = {t: start_time_period,o: item['rate'],h: item['rate'],l: item['rate'],c: item['rate']};
-            continue;
-        }
-        if(d - start_time_period > length) {
-            start_time_period += length;
-            chart.push({ht: (new Date(cur['t'])), t: (new Date(cur['t'])).getTime(),o: parseFloat(cur['o']),h: parseFloat(cur['h']),l: parseFloat(cur['l']),c: parseFloat(cur['c'])});
-            cur = {t: start_time_period,o: item['rate'],h: item['rate'],l: item['rate'],c: item['rate']};
-            continue;
-        }
-
-        if(cur['h'] < item['rate']) {
-            cur['h'] = item['rate'];
-        }
-        if(cur['l'] > item['rate']) {
-            cur['l'] = item['rate'];
-        }
-        cur['c'] = item['rate'];
-    }
-
-    return chart;
-}
-
 function rawToChart(file, chart_period) {
     const stream = fs.createReadStream(file, {flags: 'r', encoding: 'utf-8'});
+    const wstream = fs.createWriteStream(file.replace('.json', '') + '_chart_' + chart_period + '.json', {flags: 'w'});
     let buf = '';
 
+    let length = chart_period * 60 * 1000;
+    let cur = {t: null,o: null,h: null,l: null,c: null};
+    let start_time_period = null;
+    let first = true;
     let data = [];
+    wstream.write('[');
     stream.on('data', function(d) {
         buf += d.toString();
 
@@ -146,22 +131,41 @@ function rawToChart(file, chart_period) {
                 continue;
             }
             let line = buf.slice(1, pos + 1);
-            try {
-                data.push(JSON.parse(line));
+            let item = JSON.parse(line);
+            let d = (new Date(item['date'])).getTime();
+            //initialising the first bar
+            if(start_time_period == null) {
+                start_time_period = d;
+                cur = {t: start_time_period,o: item['rate'],h: item['rate'],l: item['rate'],c: item['rate']};
+
+                buf = buf.slice(pos + 1);
             }
-            catch(e) {
-                line.split('}{').forEach((elem, index) => {
-                    data.push(elem);
-                    console.log('better this than sorry');
-                });
+            if(d - start_time_period > length) {
+                start_time_period += length;
+                let bar = {ht: (new Date(cur['t'])), t: (new Date(cur['t'])).getTime(),o: parseFloat(cur['o']),h: parseFloat(cur['h']),l: parseFloat(cur['l']),c: parseFloat(cur['c'])};
+                if(!first) {
+                    first = false;
+                    wstream.write(',');
+                }
+                wstream.write(JSON.stringify(bar));
+                cur = {t: start_time_period,o: item['rate'],h: item['rate'],l: item['rate'],c: item['rate']};
+
+                buf = buf.slice(pos + 1);
             }
+
+            if(cur['h'] < item['rate']) {
+                cur['h'] = item['rate'];
+            }
+            if(cur['l'] > item['rate']) {
+                cur['l'] = item['rate'];
+            }
+            cur['c'] = item['rate'];
 
             buf = buf.slice(pos + 1);
         }
     });
     stream.on('end', function() {
-        let chart = groupData(data, chart_period * 60 * 1000);
-        fs.writeFile(file.replace('.json', '') + '_chart_' + chart_period + '.json', JSON.stringify(chart), () => {});
+        wstream.write(']');
     });
 }
 
@@ -187,11 +191,12 @@ function calculateEMA(chart, period, subject) {
     return ema;
 }
 
-
 function calculateSMA(chart, period, subject) {
-    subject = subject || 'c'; //close
+    subject = subject || 'c'; //means close
     let sma = [];
-    //@todo fill first with null
+    for(let i = 0; i < period - 1; i++) {
+        sma.push(null);
+    }
     for(let i = period - 1; i < chart.length; i++) {
         let sma_i = 0;
         for(let j = 0; j < period; j++) {
