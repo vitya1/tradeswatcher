@@ -2,7 +2,8 @@ const fs = require('fs');
 
 function rawToChart(file, chart_period) {
     const stream = fs.createReadStream(file, {flags: 'r', encoding: 'utf-8'});
-    const wstream = fs.createWriteStream(file.replace('.json', '') + '_chart_' + chart_period + '.json', {flags: 'w'});
+    const output_file = file.replace('.json', '') + '_chart_' + chart_period + '.json';
+    const wstream = fs.createWriteStream(output_file, {flags: 'w'});
     let buf = '';
 
     let length = chart_period * 60 * 1000;
@@ -29,6 +30,7 @@ function rawToChart(file, chart_period) {
                 cur = {t: start_time_period,o: item['rate'],h: item['rate'],l: item['rate'],c: item['rate']};
 
                 buf = buf.slice(pos + 1);
+                continue;
             }
             if(d - start_time_period > length) {
                 start_time_period += length;
@@ -41,6 +43,7 @@ function rawToChart(file, chart_period) {
                 cur = {t: start_time_period,o: item['rate'],h: item['rate'],l: item['rate'],c: item['rate']};
 
                 buf = buf.slice(pos + 1);
+                continue;
             }
 
             if(cur['h'] < item['rate']) {
@@ -66,3 +69,6 @@ function extractChartParam(chart, param, file) {
     }
     fs.writeFile(file, JSON.stringify(data), (err, data) => {});
 }
+
+//example
+//rawToChart('USDT_BTC.json', 5);

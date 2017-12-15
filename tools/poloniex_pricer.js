@@ -4,7 +4,7 @@ const progress = require('progress');
 
 "use strict";
 
-function saveStats(pair, period, callback) {
+function saveStats(pair, date_start, callback) {
     console.log('Start pair ' + pair);
     function doRequest(url) {
         return new Promise ((resolve, reject) => {
@@ -72,30 +72,25 @@ function saveStats(pair, period, callback) {
     }
 
     const sec_in_block = 5400; // 1/16 days
-    const block_in_day = 16;
-    const sec_in_day = 24 * 3600;
-    let start = Math.floor(Date.now() / 1000);
-    let end = start - 4 * sec_in_day;
     let requests = [];
+    let date_end = Math.floor(Date.now() / 1000);
+    for(let i = date_start; i <= date_end; i += sec_in_block) {
+        let url = 'https://poloniex.com/public?command=returnTradeHistory&currencyPair=' + pair + '&start=' + i + '&end=' + (i + sec_in_block);
+        let t = doRequest.bind(this, url);
+        requests.push(t);
+    }
     let bar = new progress('Parsing [:bar] :percent Items :last_parsed', {
         complete: '=',
         incomplete: ' ',
         width: 30,
-        total: period * block_in_day
+        total: Math.round((date_end - date_start) / sec_in_block)
     });
-    for(let i = 1; i <= period * block_in_day; i++) {
-        let start = end - sec_in_block;
-        let url = 'https://poloniex.com/public?command=returnTradeHistory&currencyPair=' + pair + '&start=' + start + '&end=' + end;
-        let t = doRequest.bind(this, url);
-        requests.push(t);
-        end = start;
-    }
 
-    const wstream = fs.createWriteStream('./' + pair + '.json', {flags: 'a'});
+    const wstream = fs.createWriteStream('./' + pair + '.json', {flags: 'w'});
     wstream.write('[');
     promiseWaterfall(wstream, requests).then(res => {
-        console.log('Total elements:' + res.elements + '; blocks: ' + res.blocks + ' (block size ' + sec_in_block + 'sec.); parsed period: '
-            + res.blocks * sec_in_block / sec_in_day + ' day(s) (Start ' + new Date(end*1000) + '(' + end + ')), end ' + new Date(start*1000) + '(' + start + '))');
+        console.log('Total elements:' + res.elements + '; '
+           + 'Start ' + new Date(date_start*1000) + '(' + date_start + ')), end ' + new Date(date_end*1000) + '(' + date_end + ')');
 
         wstream.write(']');
         wstream.end();
@@ -108,3 +103,6 @@ function saveStats(pair, period, callback) {
     });
 
 }
+
+//example usages for USDT_BTC 2017-01-01 00:00:00
+//saveStats('USDT_BTC', 1483228800);
