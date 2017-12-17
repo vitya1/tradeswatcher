@@ -26,11 +26,11 @@ class Statistic {
         };
         for(let i = 0; i < t.length; i++) {
             //purchases first
-            if(data['amount'] == 0 && t[i]['type'] == 'sell') {
+            if(data['amount'] === 0 && t[i]['type'] === 'sell') {
                 continue;
             }
 
-            if(t[i]['type'] == 'buy') {
+            if(t[i]['type'] === 'buy') {
                 data['amount'] += t[i]['quantity'];
                 data.purchases.push({amount: t[i]['quantity'], price: t[i]['unit price']});
                 data.average_buy_price += t[i]['unit price'];
@@ -328,10 +328,10 @@ socket.on('loadPrices', data => {
                 continue;
             }
             let price = 0;
-            if(base_coin == 'BTC') {
+            if(base_coin === 'BTC') {
                 price = data[sec_coin].price_btc;
             }
-            else if(base_coin == 'USDT') {
+            else if(base_coin === 'USDT') {
                 price = data[sec_coin].price_usd;
             }
             else {

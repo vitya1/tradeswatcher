@@ -187,7 +187,7 @@ io.on('connection', socket => {
         try {
             let responce = {};
             for(let i in current_price) {
-                if(data['coins'].indexOf(current_price[i]['symbol']) != -1) {
+                if(data['coins'].indexOf(current_price[i]['symbol']) !== -1) {
                     responce[current_price[i]['symbol']] = current_price[i];
                 }
             }
