@@ -85,16 +85,16 @@
         <div v-if="results_data.length">
             <h3>Result</h3>
             <grid
-                :data="results_data"
-                :columns="results_columns">
+                    :data="results_data"
+                    :columns="results_columns">
             </grid>
         </div>
 
         <div v-if="grid_data.length">
             <h3>Raw data</h3>
             <grid
-                :data="grid_data"
-                :columns="grid_columns">
+                    :data="grid_data"
+                    :columns="grid_columns">
             </grid>
         </div>
 
@@ -103,34 +103,32 @@
 </div>
 
 
-<!-- component template -->
 <script type="text/x-template" id="grid-template">
     <div class="table-scroll">
         <table v-if="filteredData.length" class="table table-fixed">
             <thead>
-                <tr>
-                    <th v-for="key in columns"
-                        @click="sortBy(key)"
-                        :class="{ active: sortKey == key }">
-                        {{ key | capitalize }}
-                        <span class="arrow" :class="sortOrders[key] > 0 ? 'asc' : 'dsc'">
+            <tr>
+                <th v-for="key in columns"
+                    @click="sortBy(key)"
+                    :class="{ active: sortKey == key }">
+                    {{ key | capitalize }}
+                    <span class="arrow" :class="sortOrders[key] > 0 ? 'asc' : 'dsc'">
                       </span>
-                    </th>
-                </tr>
+                </th>
+            </tr>
             </thead>
             <tbody>
-                <tr v-for="entry in filteredData">
-                    <td v-for="key in columns">
-                        {{entry[key]}}
-                    </td>
-                </tr>
+            <tr v-for="entry in filteredData">
+                <td v-for="key in columns">
+                    {{entry[key]}}
+                </td>
+            </tr>
             </tbody>
         </table>
     </div>
     <p v-else>No matches found.</p>
 </script>
 
-<!-- demo root element -->
 
 <script src="/js/main.js"></script>
 

@@ -1,3 +1,4 @@
+const https = require('https');
 const bittrex = require('node.bittrex.api');
 const express = require('express');
 const app = express();
@@ -108,6 +109,19 @@ function readCsv(filename, callback) {
         callback(result);
     });
 }
+function updateTicker() {
+    https.get('https://api.coinmarketcap.com/v1/ticker/', res => {
+        let data = '';
+        res.on('data', (d) => {
+            data += d.toString();
+        });
+        res.on('end', () => {
+            current_price = JSON.parse(data);
+        });
+    }).on('error', (e) => {
+        console.error(e);
+    });
+}
 
 app.post('/upload', upload.single('csv_file'), (req, res, next) => {
     console.log(req.file);
@@ -124,7 +138,7 @@ app.post('/upload', upload.single('csv_file'), (req, res, next) => {
     }
 
     readCsv(req.file['path'], result => {
-        fs.unlinkSync(req.file['path']);
+        //fs.unlinkSync(req.file['path']);
         res.status(200).send(result).end();
     });
 
@@ -151,7 +165,7 @@ io.on('connection', socket => {
             let url = 'https://bittrex.com/api/v1.1/account/getorderhistory';
             bittrex.sendCustomRequest(url, (data, err) => {
                 if(err) {
-                    throw err;
+                    console.log(err);
                 }
                 let result = [];
                 for(let i = 0; i < data['result'].length; i++) {
@@ -169,21 +183,27 @@ io.on('connection', socket => {
         }
     });
 
+    socket.on('getPrices', data => {
+        try {
+            let responce = {};
+            for(let i in current_price) {
+                if(data['coins'].indexOf(current_price[i]['symbol']) != -1) {
+                    responce[current_price[i]['symbol']] = current_price[i];
+                }
+            }
+            socket.emit('loadPrices', responce);
+        }
+        catch (e) {
+            console.log(e);
+        }
+    });
+
 });
 
 server.listen(3001, '127.0.0.1');
 
+updateTicker();
 setInterval(() => {
-    https.get('https://api.coinmarketcap.com/v1/ticker/', res => {
-        let data = '';
-        res.on('data', (d) => {
-            data += d.toString();
-        });
-        res.on('end', () => {
-            current_price = JSON.parse(data);
-        });
-    }).on('error', (e) => {
-        console.error(e);
-    });
+    updateTicker();
 }, 60000);
 
