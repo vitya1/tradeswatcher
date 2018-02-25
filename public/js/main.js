@@ -25,10 +25,6 @@ class Statistic {
             open_change: 0
         };
         for(let i = 0; i < t.length; i++) {
-            //purchases first
-            if(data['amount'] === 0 && t[i]['type'] === 'sell') {
-                continue;
-            }
 
             if(t[i]['type'] === 'buy') {
                 data['amount'] += t[i]['quantity'];
@@ -201,7 +197,7 @@ let updateTable = function(app, data) {
         }
         let base_coin = pair.split('-')[0];
         let sec_coin = pair.split('-')[1];
-        if(traded_coins.indexOf(sec_coin) == -1) {
+        if(traded_coins.indexOf(sec_coin) === -1) {
             traded_coins.push(sec_coin);
         }
         app.common_stats.fee.set(base_coin, (app.common_stats.fee.has(base_coin)
